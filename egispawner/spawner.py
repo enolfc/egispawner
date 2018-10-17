@@ -1,7 +1,7 @@
 import uuid
 from tornado import gen
 from kubespawner import KubeSpawner
-from traitlets import List, Bool
+from traitlets import List, Bool, Dict
 
 class EGISpawner(KubeSpawner):
     custom_images_list = List(
@@ -15,6 +15,12 @@ class EGISpawner(KubeSpawner):
         help='Setting this to true will enable the default options '
              'form which uses Environment variables to capture which '
              'image specs to use and give resource limits options')
+
+    custom_user_requests = Dict(
+        {},
+        config=True,
+        help='Specific limits for user can be specified in this dict',
+    )
 
     def _options_form_default(self):
         if self.use_options_form != True:
@@ -63,6 +69,12 @@ class EGISpawner(KubeSpawner):
 
     @gen.coroutine
     def get_pod_manifest(self):
+        if self.user.name in self.custom_user_requests:
+            req = self.custom_user_requests[self.user.name]
+            self.cpu_limit = req.get('cpu_limit', self.cpu_limit)
+            self.cpu_guarantee = req.get('cpu_guarantee', self.cpu_guarantee)
+            self.mem_limit = req.get('mem_limit', self.mem_limit)
+            self.mem_guarantee = req.get('mem_guarantee', self.mem_guarantee)
         pod = yield super().get_pod_manifest()
         if 'custom_image' in self.user_options:
             notebook_container = pod.spec.containers[0]
